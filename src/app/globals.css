@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f5f1;
+  --foreground: #17202a;
+}
+
+@theme inline {
+  --color-background: #f6f5f1;
+  --color-foreground: #17202a;
+  --font-sans: "Noto Sans Hebrew", "Assistant", "Heebo", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", "Roboto Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Noto Sans Hebrew", "Assistant", "Heebo", Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(13, 94, 99, 0.18);
+}
+
+@media print {
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  .print-ticket-page {
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
