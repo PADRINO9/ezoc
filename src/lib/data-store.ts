@@ -9,6 +9,7 @@ import {
   messages as seedMessages,
   orderItems as seedOrderItems,
   orders as seedOrders,
+  sampleMessages,
 } from "@/lib/mock-data";
 import { applyKnownCustomerDetails, parseCustomerOrderMessage } from "@/lib/order-parser";
 import { getSupabaseServerClient, hasSupabaseConfig } from "@/lib/supabase";
@@ -67,6 +68,36 @@ function getDemoState() {
 
 function timestamp() {
   return new Date().toISOString();
+}
+
+function stripGeneratedProductFields(product: Product) {
+  return {
+    name: product.name,
+    aliases: product.aliases,
+    cut_options: product.cut_options,
+    active: product.active,
+  };
+}
+
+function stripGeneratedSettingsFields(settings: Settings) {
+  return {
+    business_name: settings.business_name,
+    opening_hours: settings.opening_hours,
+    pickup_windows: settings.pickup_windows,
+    after_hours_auto_reply: settings.after_hours_auto_reply,
+    minimum_confidence_threshold: settings.minimum_confidence_threshold,
+    require_human_approval: settings.require_human_approval,
+    default_ai_order_status: settings.default_ai_order_status,
+  };
+}
+
+function normalizeSupabaseOrder(order: Order): Order {
+  return {
+    ...order,
+    raw_messages: order.raw_messages ?? [],
+    missing_fields: order.missing_fields ?? [],
+    printed_at: order.printed_at ?? null,
+  };
 }
 
 function hydrateDemoOrder(order: Order, state = getDemoState()): OrderWithRelations {
@@ -154,14 +185,37 @@ async function loadSupabaseCollections() {
   const customers = (customersResult.data ?? []) as Customer[];
   const conversations = (conversationsResult.data ?? []) as Conversation[];
   const messages = (messagesResult.data ?? []) as Message[];
-  const orders = (ordersResult.data ?? []) as Order[];
+  const orders = ((ordersResult.data ?? []) as Order[]).map(normalizeSupabaseOrder);
   const orderItems = (itemsResult.data ?? []) as OrderItem[];
-  const products = ((productsResult.data ?? []) as Product[]).map((product) => ({
+  let products = ((productsResult.data ?? []) as Product[]).map((product) => ({
     ...product,
     aliases: product.aliases ?? [],
     cut_options: product.cut_options ?? [],
   }));
-  const settings = (settingsResult.data as Settings | null) ?? defaultSettings;
+  if (products.length === 0) {
+    const inserted = await getSupabaseServerClient()
+      .from("products")
+      .insert(initialProducts.map(stripGeneratedProductFields))
+      .select("*")
+      .order("name", { ascending: true });
+    if (inserted.error) throw inserted.error;
+    products = ((inserted.data ?? []) as Product[]).map((product) => ({
+      ...product,
+      aliases: product.aliases ?? [],
+      cut_options: product.cut_options ?? [],
+    }));
+  }
+
+  let settings = settingsResult.data as Settings | null;
+  if (!settings) {
+    const inserted = await getSupabaseServerClient()
+      .from("settings")
+      .insert(stripGeneratedSettingsFields(defaultSettings))
+      .select("*")
+      .single();
+    if (inserted.error) throw inserted.error;
+    settings = inserted.data as Settings;
+  }
 
   return { customers, conversations, messages, orders, orderItems, products, settings };
 }
@@ -172,7 +226,15 @@ export async function getSettings() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.from("settings").select("*").limit(1).maybeSingle();
   if (error) throw error;
-  return (data as Settings | null) ?? defaultSettings;
+  if (data) return data as Settings;
+
+  const inserted = await supabase
+    .from("settings")
+    .insert(stripGeneratedSettingsFields(defaultSettings))
+    .select("*")
+    .single();
+  if (inserted.error) throw inserted.error;
+  return inserted.data as Settings;
 }
 
 export async function getProducts() {
@@ -181,7 +243,21 @@ export async function getProducts() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.from("products").select("*").order("name");
   if (error) throw error;
-  return ((data ?? []) as Product[]).map((product) => ({
+  if (!data || data.length === 0) {
+    const inserted = await supabase
+      .from("products")
+      .insert(initialProducts.map(stripGeneratedProductFields))
+      .select("*")
+      .order("name", { ascending: true });
+    if (inserted.error) throw inserted.error;
+    return ((inserted.data ?? []) as Product[]).map((product) => ({
+      ...product,
+      aliases: product.aliases ?? [],
+      cut_options: product.cut_options ?? [],
+    }));
+  }
+
+  return (data as Product[]).map((product) => ({
     ...product,
     aliases: product.aliases ?? [],
     cut_options: product.cut_options ?? [],
@@ -443,6 +519,7 @@ async function processIncomingDemo(input: IncomingCustomerMessageInput): Promise
       ai_confidence: parsed.aiConfidence,
       missing_fields: parsed.missingFields,
       human_review_required: parsed.humanReviewRequired,
+      printed_at: null,
       notes: null,
       customer_notes: null,
       created_at: timestamp(),
@@ -521,7 +598,7 @@ async function processIncomingSupabase(input: IncomingCustomerMessageInput): Pro
   if (latestOrder.error) throw latestOrder.error;
 
   let order: Order;
-  const existingOrder = latestOrder.data as Order | null;
+  const existingOrder = latestOrder.data ? normalizeSupabaseOrder(latestOrder.data as Order) : null;
   if (shouldUpdateExistingOrder(existingOrder ?? undefined, parsed) && existingOrder) {
     const missingFields = mergeMissingFields(existingOrder, parsed);
     const updatedOrder = {
@@ -547,6 +624,7 @@ async function processIncomingSupabase(input: IncomingCustomerMessageInput): Pro
       .single();
     if (error) throw error;
     order = data as Order;
+    order = normalizeSupabaseOrder(order);
   } else {
     const collections = await loadSupabaseCollections();
     const { data, error } = await supabase
@@ -569,6 +647,7 @@ async function processIncomingSupabase(input: IncomingCustomerMessageInput): Pro
       .single();
     if (error) throw error;
     order = data as Order;
+    order = normalizeSupabaseOrder(order);
 
     if (parsed.items.length > 0) {
       const { error: itemError } = await supabase.from("order_items").insert(
@@ -601,7 +680,7 @@ async function processIncomingSupabase(input: IncomingCustomerMessageInput): Pro
 
   await supabase
     .from("conversations")
-    .update({ status: parsed.status, updated_at: timestamp() })
+    .update({ status: order.status, updated_at: timestamp() })
     .eq("id", conversation.id);
 
   const refreshedOrder = await getOrderById(order.id);
@@ -634,6 +713,11 @@ function revalidateOperationalPaths() {
   }
 }
 
+function revalidateOrderPaths(orderId: string) {
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath(`/orders/${orderId}/ticket`);
+}
+
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   if (!hasSupabaseConfig()) {
     const state = getDemoState();
@@ -655,7 +739,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
     }
 
     revalidateOperationalPaths();
-    revalidatePath(`/orders/${orderId}`);
+    revalidateOrderPaths(orderId);
     return hydrateDemoOrder(order, state);
   }
 
@@ -680,8 +764,37 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   }
 
   revalidateOperationalPaths();
-  revalidatePath(`/orders/${orderId}`);
+  revalidateOrderPaths(orderId);
   return getOrderById(orderId);
+}
+
+export async function markOrderPrinted(orderId: string) {
+  const printedAt = timestamp();
+
+  if (!hasSupabaseConfig()) {
+    const state = getDemoState();
+    const order = state.orders.find((item) => item.id === orderId);
+    if (!order) return null;
+
+    order.printed_at = printedAt;
+    order.updated_at = printedAt;
+    revalidateOperationalPaths();
+    revalidateOrderPaths(orderId);
+    return hydrateDemoOrder(order, state);
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ printed_at: printedAt, updated_at: printedAt })
+    .eq("id", orderId)
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  revalidateOperationalPaths();
+  revalidateOrderPaths(orderId);
+  return getOrderById((data as Order).id);
 }
 
 export async function saveOrderDetails(orderId: string, payload: EditableOrderPayload) {
@@ -726,7 +839,7 @@ export async function saveOrderDetails(orderId: string, payload: EditableOrderPa
     }
 
     revalidateOperationalPaths();
-    revalidatePath(`/orders/${orderId}`);
+    revalidateOrderPaths(orderId);
     return hydrateDemoOrder(order, state);
   }
 
@@ -777,7 +890,7 @@ export async function saveOrderDetails(orderId: string, payload: EditableOrderPa
   }
 
   revalidateOperationalPaths();
-  revalidatePath(`/orders/${orderId}`);
+  revalidateOrderPaths(orderId);
   return getOrderById(data.id);
 }
 
@@ -847,6 +960,102 @@ export async function setProductActive(productId: string, active: boolean) {
   if (error) throw error;
   revalidatePath("/catalog");
   return data as Product;
+}
+
+function overnightTimestamp(index: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - 1);
+  date.setHours(22 + Math.floor(index / 3), 10 + index * 7, 0, 0);
+  return date.toISOString();
+}
+
+function uniqueDemoPhone(index: number) {
+  const suffix = String(Date.now()).slice(-5);
+  return `058${suffix}${String(index + 1).padStart(2, "0")}`;
+}
+
+function overnightSampleInputs(): IncomingCustomerMessageInput[] {
+  const base = [
+    {
+      name: "משה לוי",
+      text: sampleMessages[0].text,
+    },
+    {
+      name: "רחל בן דוד",
+      text: "אני רוצה 3 קילו דניס נקי לשישי. רחל",
+    },
+    {
+      name: "דני כהן",
+      text: "תכין לי כמו פעם שעברה, אבל קצת יותר סלמון, לשישי בבוקר",
+    },
+    {
+      name: "יואב מזרחי",
+      text: "אני צריך לברק וסלמון למחר, תעדכן כמה עולה",
+    },
+    {
+      name: null,
+      text: "אחי תעשה לי דגים לשבת כמו תמיד",
+    },
+    {
+      name: "נועה",
+      text: "אפשר להזמין 3 מגשים של סביצ׳ה לשישי ב-9?",
+    },
+    {
+      name: "אבי",
+      text: "דחוף להיום 2 קילו מושט פרוס, קילו סלמון בלי עור, לאסוף ב-12:30",
+    },
+  ];
+
+  return base.map((message, index) => ({
+    phone: uniqueDemoPhone(index),
+    name: message.name,
+    text: message.text,
+    timestamp: overnightTimestamp(index),
+    source: "simulator",
+  }));
+}
+
+export async function loadOvernightSampleOrders() {
+  const results: ProcessedIncomingMessage[] = [];
+
+  for (const input of overnightSampleInputs()) {
+    results.push(await processIncomingCustomerMessage(input));
+  }
+
+  revalidateOperationalPaths();
+  return results;
+}
+
+export async function resetDemoData() {
+  if (!hasSupabaseConfig()) {
+    const state = getDemoState();
+    const currentProducts = state.products;
+    const currentSettings = state.settings;
+
+    globalForDemo.bonHachamDemoState = {
+      customers: clone(seedCustomers),
+      conversations: clone(seedConversations),
+      messages: clone(seedMessages),
+      orders: clone(seedOrders),
+      orderItems: clone(seedOrderItems),
+      products: currentProducts.length > 0 ? currentProducts : clone(initialProducts),
+      settings: currentSettings ?? clone(defaultSettings),
+    };
+
+    revalidateOperationalPaths();
+    return { mode: "demo" as const };
+  }
+
+  const supabase = getSupabaseServerClient();
+  const emptyUuid = "00000000-0000-0000-0000-000000000000";
+  for (const table of ["order_items", "orders", "messages", "conversations", "customers"]) {
+    const result = await supabase.from(table).delete().neq("id", emptyUuid);
+    if (result.error) throw result.error;
+  }
+
+  await loadOvernightSampleOrders();
+  revalidateOperationalPaths();
+  return { mode: "supabase" as const };
 }
 
 export function coerceUnit(value: FormDataEntryValue | null): Unit {

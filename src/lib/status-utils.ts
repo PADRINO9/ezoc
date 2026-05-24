@@ -15,7 +15,7 @@ export const statusLabels: Record<OrderStatus, string> = {
 export const statusDescriptions: Record<OrderStatus, string> = {
   draft_from_whatsapp: "הודעה נקלטה ועדיין לא גובשה להזמנה מלאה.",
   missing_details: "המערכת ביקשה מהלקוח להשלים פרטים.",
-  pending_review: "טיוטת AI מוכנה לבדיקת החנות.",
+  pending_review: "טיוטת פענוח מוכנה לבדיקת החנות.",
   approved: "אושרה ידנית על ידי החנות.",
   in_preparation: "הצוות התחיל להכין את ההזמנה.",
   ready: "ההזמנה מוכנה וממתינה לאיסוף.",

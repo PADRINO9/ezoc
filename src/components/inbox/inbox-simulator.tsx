@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Bot, Clock3, MessageCircle, Send, UserRound } from "lucide-react";
-import { simulateIncomingMessageAction } from "@/lib/actions";
-import type { ConversationWithRelations } from "@/lib/types";
+import { useActionState, useMemo, useState } from "react";
+import { CheckCircle2, Clock3, MessageCircle, Send, ShieldCheck, UserRound } from "lucide-react";
+import { loadOvernightSampleOrdersAction, simulateIncomingMessageAction } from "@/lib/actions";
+import type { ConversationWithRelations, ProcessingFeedback } from "@/lib/types";
 import { sampleMessages } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,15 @@ import { ConfidenceMeter } from "@/components/shared/confidence-meter";
 import { Badge } from "@/components/ui/badge";
 import { formatHebrewDateTime } from "@/lib/date-utils";
 import { cn, formatPhone } from "@/lib/utils";
+
+const initialFeedback: ProcessingFeedback = {
+  ok: false,
+  conversationId: null,
+  orderId: null,
+  title: "",
+  steps: [],
+  status: null,
+};
 
 function fieldLabel(field: string) {
   const labels: Record<string, string> = {
@@ -119,7 +128,7 @@ function ChatPanel({ conversation }: { conversation: ConversationWithRelations |
                   {message.direction === "incoming" ? (
                     <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
                   ) : (
-                    <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+                    <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                   )}
                   {message.direction === "incoming" ? "לקוח" : "מערכת"}
                   <span>{formatHebrewDateTime(message.timestamp)}</span>
@@ -169,15 +178,27 @@ function ChatPanel({ conversation }: { conversation: ConversationWithRelations |
 }
 
 export function InboxSimulator({ conversations }: { conversations: ConversationWithRelations[] }) {
+  const [processingState, formAction, isProcessing] = useActionState(
+    simulateIncomingMessageAction,
+    initialFeedback,
+  );
+  const [sampleState, sampleAction, isLoadingSamples] = useActionState(
+    loadOvernightSampleOrdersAction,
+    initialFeedback,
+  );
   const sortedConversations = useMemo(
     () => [...conversations].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     [conversations],
   );
-  const [selectedId, setSelectedId] = useState(sortedConversations[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(sortedConversations[0]?.id ?? null);
+  const [lastSubmittedFlow, setLastSubmittedFlow] = useState<"message" | "samples" | null>(null);
   const [name, setName] = useState(sampleMessages[0].name);
   const [phone, setPhone] = useState(sampleMessages[0].phone);
   const [text, setText] = useState(sampleMessages[0].text);
-  const selected = sortedConversations.find((conversation) => conversation.id === selectedId) ?? null;
+  const actionSelectedId =
+    lastSubmittedFlow === "samples" ? sampleState.conversationId : processingState.conversationId;
+  const effectiveSelectedId = selectedId ?? actionSelectedId ?? sortedConversations[0]?.id ?? null;
+  const selected = sortedConversations.find((conversation) => conversation.id === effectiveSelectedId) ?? null;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[390px_minmax(0,1fr)]">
@@ -186,11 +207,18 @@ export function InboxSimulator({ conversations }: { conversations: ConversationW
           <CardHeader>
             <CardTitle>סימולטור הודעת וואטסאפ נכנסת</CardTitle>
             <p className="mt-1 text-sm leading-6 text-slate-500">
-              מדמה webhook עתידי: שמירת הודעה, זיהוי לקוח, parsing, יצירת הזמנה ותשובת מערכת.
+              מדמה webhook עתידי: שמירת הודעה, זיהוי לקוח, פענוח, יצירת הזמנה ותשובת מערכת.
             </p>
           </CardHeader>
           <CardContent>
-            <form action={simulateIncomingMessageAction} className="space-y-4">
+            <form
+              action={formAction}
+              className="space-y-4"
+              onSubmit={() => {
+                setSelectedId(null);
+                setLastSubmittedFlow("message");
+              }}
+            >
               <input type="hidden" name="timestamp" value={new Date().toISOString()} />
               <Field>
                 <Label htmlFor="name">שם מוצג</Label>
@@ -215,11 +243,60 @@ export function InboxSimulator({ conversations }: { conversations: ConversationW
                   onChange={(event) => setText(event.target.value)}
                 />
               </Field>
-              <Button type="submit" size="lg" className="w-full">
+              <Button type="submit" size="lg" className="w-full" disabled={isProcessing}>
                 <Send className="h-5 w-5" aria-hidden="true" />
-                שלח הודעה לסימולטור
+                {isProcessing ? "מעבד הודעה..." : "שלח הודעה לסימולטור"}
               </Button>
             </form>
+            {processingState.title ? (
+              <div className="mt-5 rounded-lg border border-teal-900/15 bg-teal-50 p-4">
+                <div className="flex items-center gap-2 text-sm font-black text-teal-950">
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  {processingState.title}
+                </div>
+                <ul className="mt-3 space-y-2 text-sm font-semibold text-teal-950/85">
+                  {processingState.steps.map((step) => (
+                    <li key={step} className="flex items-start gap-2">
+                      <span aria-hidden="true">✓</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>תרחיש בוקר מהיר</CardTitle>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              יוצר כמה הודעות לילה אמיתיות למראה, כולל חוסרים, בדיקה ידנית, בקשת מחיר ואיסוף מוקדם.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form
+              action={sampleAction}
+              onSubmit={() => {
+                setSelectedId(null);
+                setLastSubmittedFlow("samples");
+              }}
+            >
+              <Button type="submit" variant="outline" size="lg" className="w-full" disabled={isLoadingSamples}>
+                <Clock3 className="h-5 w-5" aria-hidden="true" />
+                {isLoadingSamples ? "טוען תרחיש..." : "טען הזמנות לילה לדוגמה"}
+              </Button>
+            </form>
+            {sampleState.title ? (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="font-black text-slate-950">{sampleState.title}</p>
+                <ul className="mt-2 space-y-1 text-sm font-semibold text-slate-600">
+                  {sampleState.steps.map((step) => (
+                    <li key={step}>✓ {step}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -256,7 +333,7 @@ export function InboxSimulator({ conversations }: { conversations: ConversationW
           <CardContent>
             <ConversationList
               conversations={sortedConversations}
-              selectedId={selectedId}
+              selectedId={effectiveSelectedId}
               onSelect={setSelectedId}
             />
           </CardContent>

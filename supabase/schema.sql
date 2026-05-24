@@ -53,11 +53,14 @@ create table if not exists orders (
   ai_confidence numeric not null default 0,
   missing_fields jsonb not null default '[]'::jsonb,
   human_review_required boolean not null default true,
+  printed_at timestamp with time zone,
   notes text,
   customer_notes text,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
+
+alter table orders add column if not exists printed_at timestamp with time zone;
 
 create table if not exists order_items (
   id uuid primary key default gen_random_uuid(),
@@ -98,6 +101,7 @@ create index if not exists idx_conversations_phone on conversations(phone);
 create index if not exists idx_messages_conversation_timestamp on messages(conversation_id, timestamp);
 create index if not exists idx_orders_status on orders(status);
 create index if not exists idx_orders_pickup on orders(pickup_date, pickup_time);
+create index if not exists idx_orders_printed_at on orders(printed_at);
 create index if not exists idx_order_items_order_id on order_items(order_id);
 create index if not exists idx_products_active on products(active);
 

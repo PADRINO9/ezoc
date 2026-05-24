@@ -76,6 +76,19 @@ export function isEarlyPickup(time: string | null) {
   return Number.isFinite(hour) && hour < 10;
 }
 
+export function isOvernightTimestamp(dateValue: string | null | undefined) {
+  if (!dateValue) return false;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const hour = date.getHours();
+  return hour < 7 || hour >= 20;
+}
+
+export function isOrderReceivedOvernight(createdAt: string, incomingTimestamps: string[] = []) {
+  return [...incomingTimestamps, createdAt].some(isOvernightTimestamp);
+}
+
 export function isPastPickup(time: string | null) {
   if (!time) return false;
   const [hour, minute] = time.split(":").map(Number);

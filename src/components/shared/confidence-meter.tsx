@@ -11,7 +11,7 @@ export function ConfidenceMeter({ value, compact = false }: { value: number; com
   return (
     <div className={cn("min-w-28", compact && "min-w-20")}>
       <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-600">
-        <span>אמון AI</span>
+        <span>רמת ודאות</span>
         <span dir="ltr">{formatPercent(value)}</span>
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">

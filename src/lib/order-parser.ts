@@ -9,8 +9,16 @@ import type {
 } from "@/lib/types";
 import { normalizePhone } from "@/lib/utils";
 
-const AMBIGUOUS_PHRASES = ["כמו פעם שעברה", "כמו שבוע שעבר", "כמו תמיד", "כרגיל", "מה שהיה"];
-const PRICE_PHRASES = ["כמה עולה", "מחיר", "תעדכן כמה", "כמה יעלה"];
+const AMBIGUOUS_PHRASES = [
+  "כמו פעם שעברה",
+  "כמו שבוע שעבר",
+  "כמו תמיד",
+  "כרגיל",
+  "מה שהיה",
+  "מה שהיה פעם שעברה",
+  "תעשה לי דגים לשבת",
+];
+const PRICE_PHRASES = ["כמה עולה", "מחיר", "תעדכן כמה", "כמה יעלה", "מה המחיר"];
 const URGENT_PHRASES = ["דחוף", "כמה שיותר מהר", "להיום", "עכשיו"];
 const VAGUE_FISH_PHRASES = ["דגים לשבת", "תעשה לי דגים", "דגים כמו תמיד"];
 const CUT_STYLES = [
@@ -31,6 +39,61 @@ const CUT_STYLES = [
   "סטייק",
   "מגש",
 ];
+const HEBREW_NUMBERS: Record<string, number> = {
+  אחד: 1,
+  אחת: 1,
+  שני: 2,
+  שניים: 2,
+  שתי: 2,
+  שתיים: 2,
+  שלושה: 3,
+  שלוש: 3,
+  ארבעה: 4,
+  ארבע: 4,
+  חמישה: 5,
+  חמש: 5,
+  שישה: 6,
+  שש: 6,
+  שבעה: 7,
+  שבע: 7,
+  שמונה: 8,
+  תשעה: 9,
+  תשע: 9,
+  עשרה: 10,
+  עשר: 10,
+};
+const NUMBER_PATTERN = String.raw`\d+(?:\.\d+)?|אחד|אחת|שני|שניים|שתי|שתיים|שלושה|שלוש|ארבעה|ארבע|חמישה|חמש|שישה|שש|שבעה|שבע|שמונה|תשעה|תשע|עשרה|עשר`;
+const NAME_BLOCKLIST = new Set([
+  "אני",
+  "רוצה",
+  "צריך",
+  "צריכה",
+  "אפשר",
+  "שלום",
+  "היי",
+  "אחי",
+  "בוקר",
+  "שישי",
+  "שבת",
+  "ראשון",
+  "שני",
+  "שלישי",
+  "רביעי",
+  "חמישי",
+  "היום",
+  "מחר",
+  "בבוקר",
+  "סלמון",
+  "דגים",
+  "דג",
+  "מחיר",
+  "קילו",
+  "קג",
+  "ק״ג",
+  "מגש",
+  "מגשים",
+  "יחידות",
+]);
 
 function cleanText(text: string) {
   return text
@@ -50,31 +113,80 @@ function detectPhone(text: string) {
   return match ? normalizePhone(match[0]) : null;
 }
 
-function detectName(text: string, phone: string | null) {
-  if (phone) {
-    const beforePhone = text.match(/([א-ת]{2,}(?:\s+[א-ת]{2,})?)\s+(?:\+?972[-\s]?)?0?5\d[-\s]?\d{7}/);
-    if (beforePhone?.[1]) return beforePhone[1].trim();
+function parseNumberToken(value: string) {
+  const normalized = value.trim();
+  if (normalized === "חצי") return 0.5;
+  if (normalized === "רבע") return 0.25;
+  const numeric = Number(normalized);
+  if (Number.isFinite(numeric)) return numeric;
+  return HEBREW_NUMBERS[normalized] ?? null;
+}
+
+function productNameBlocklist(catalog: Product[]) {
+  return new Set(
+    catalog.flatMap((product) => [product.name, ...product.aliases]).flatMap((name) => name.split(/\s+/)),
+  );
+}
+
+function isValidCustomerName(value: string, catalog: Product[]) {
+  const name = value.replace(/[^\u0590-\u05FF\s]/g, " ").replace(/\s+/g, " ").trim();
+  if (!name || name.length < 2) return false;
+
+  const words = name.split(" ").filter(Boolean);
+  if (words.length > 3) return false;
+
+  const blockedProducts = productNameBlocklist(catalog);
+  return words.every((word) => !NAME_BLOCKLIST.has(word) && !blockedProducts.has(word));
+}
+
+function pickNameCandidate(value: string, catalog: Product[]) {
+  const words = value
+    .replace(/[^\u0590-\u05FF\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+
+  for (const size of [2, 1]) {
+    const candidate = words.slice(-size).join(" ");
+    if (isValidCustomerName(candidate, catalog)) return candidate;
   }
 
-  const explicit = text.match(/(?:אני|שמי|שם)\s+([א-ת]{2,}(?:\s+[א-ת]{2,})?)/);
-  if (explicit?.[1]) return explicit[1].trim();
+  return null;
+}
 
-  const trailing = text.match(/(?:,\s*|\.\s*|\s)([א-ת]{2,}(?:\s+[א-ת]{2,})?)\s*$/);
-  if (trailing?.[1]) {
-    const value = trailing[1].trim();
-    if (!["בבוקר", "לשבת", "למחר", "להיום"].includes(value)) return value;
+function detectName(text: string, phone: string | null, catalog: Product[]) {
+  if (phone) {
+    const phoneIndex = text.search(/(?:\+?972[-\s]?)?0?5\d[-\s]?\d{7}/);
+    const beforePhone = phoneIndex >= 0 ? text.slice(Math.max(0, phoneIndex - 48), phoneIndex) : "";
+    const nearPhoneName = pickNameCandidate(beforePhone, catalog);
+    if (nearPhoneName) return nearPhoneName;
+  }
+
+  const explicit = text.match(/(?:שמי|קוראים לי|שם(?: מלא)?[:\s]+)\s*([א-ת]{2,}(?:\s+[א-ת]{2,}){0,2})/);
+  if (explicit?.[1] && isValidCustomerName(explicit[1], catalog)) return explicit[1].trim();
+
+  const commaParts = text.split(",");
+  if (commaParts.length > 1) {
+    const trailing = pickNameCandidate(commaParts.at(-1) ?? "", catalog);
+    if (trailing) return trailing;
   }
 
   return null;
 }
 
 function detectPickupTime(text: string) {
+  if (/בין\s+10\s+ל-?11/.test(text)) return "10:00-11:00";
+  if (/בעשר\s+וחצי|ב-?10\s*וחצי/.test(text)) return "10:30";
+  if (/לקראת\s+12/.test(text)) return "12:00";
+  if (/לפני\s+10/.test(text)) return "לפני 10:00";
+
   const colonTime = text.match(/(?:^|[^\d])(\d{1,2}):(\d{2})(?:$|[^\d])/);
   if (colonTime) {
     return `${colonTime[1].padStart(2, "0")}:${colonTime[2]}`;
   }
 
-  const prefixed = text.match(/(?:ב|ל|בשעה|לשעה|ב-)\s*-?\s*(\d{1,2})(?!\s*(?:קילו|קג|ק״ג|מגש|מגשים|דניס|דניסים|לברק|לברקים))/);
+  const prefixed = text.match(/(?:^|\s)(?:ב|ל|בשעה|לשעה|ב-|ל-)\s*-?\s*(\d{1,2})(?!\s*(?:קילו|קג|ק״ג|מגש|מגשים|דניס|דניסים|לברק|לברקים))/);
   if (prefixed) {
     const hour = Number(prefixed[1]);
     if (hour >= 6 && hour <= 22) {
@@ -117,32 +229,33 @@ function parseQuantityAround(text: string, alias: string, index: number): { quan
   const before = text.slice(Math.max(0, index - 24), index);
   const after = text.slice(index, Math.min(text.length, index + alias.length + 24));
 
-  if (/חצי\s*(?:קילו|קג|ק״ג)/.test(before) || /חצי\s*(?:קילו|קג|ק״ג)/.test(window)) {
-    return { quantity: 0.5, unit: "kg" };
-  }
+  if (/קילו\s+וחצי/.test(before) || /קילו\s+וחצי/.test(window)) return { quantity: 1.5, unit: "kg" };
+  if (/חצי\s*(?:קילו|קג|ק״ג)/.test(before) || /חצי\s*(?:קילו|קג|ק״ג)/.test(window)) return { quantity: 0.5, unit: "kg" };
+  if (/רבע\s*(?:קילו|קג|ק״ג)/.test(before) || /רבע\s*(?:קילו|קג|ק״ג)/.test(window)) return { quantity: 0.25, unit: "kg" };
 
-  const kgBefore = before.match(/(\d+(?:\.\d+)?)\s*(?:קילו|קג|ק״ג)\s*$/);
-  if (kgBefore) return { quantity: Number(kgBefore[1]), unit: "kg" };
+  const kgPattern = new RegExp(`(${NUMBER_PATTERN})\\s*(?:קילו|קג|ק״ג)`);
+  const kgBefore = before.match(new RegExp(`(${NUMBER_PATTERN})\\s*(?:קילו|קג|ק״ג)\\s*$`));
+  if (kgBefore) return { quantity: parseNumberToken(kgBefore[1]), unit: "kg" };
 
-  const kgWindow = window.match(/(\d+(?:\.\d+)?)\s*(?:קילו|קג|ק״ג)/);
-  if (kgWindow) return { quantity: Number(kgWindow[1]), unit: "kg" };
+  const kgWindow = window.match(kgPattern);
+  if (kgWindow) return { quantity: parseNumberToken(kgWindow[1]), unit: "kg" };
 
   const singleKg = before.match(/(?:^|\s)קילו\s*$/);
   if (singleKg) return { quantity: 1, unit: "kg" };
 
-  const trayBefore = before.match(/(\d+(?:\.\d+)?)\s*(?:מגש|מגשים)\s*(?:של)?\s*$/);
-  if (trayBefore) return { quantity: Number(trayBefore[1]), unit: "tray" };
+  const trayBefore = before.match(new RegExp(`(${NUMBER_PATTERN})\\s*(?:מגש|מגשים)\\s*(?:של)?\\s*$`));
+  if (trayBefore) return { quantity: parseNumberToken(trayBefore[1]), unit: "tray" };
 
-  const trayWindow = window.match(/(\d+(?:\.\d+)?)\s*(?:מגש|מגשים)/);
-  if (trayWindow) return { quantity: Number(trayWindow[1]), unit: "tray" };
+  const trayWindow = window.match(new RegExp(`(${NUMBER_PATTERN})\\s*(?:מגש|מגשים)`));
+  if (trayWindow) return { quantity: parseNumberToken(trayWindow[1]), unit: "tray" };
 
-  const unitsBefore = before.match(/(\d+(?:\.\d+)?)\s*$/);
+  const unitsBefore = before.match(new RegExp(`(${NUMBER_PATTERN})\\s*$`));
   if (unitsBefore && /(?:ים|ות|י)$/.test(alias)) {
-    return { quantity: Number(unitsBefore[1]), unit: "unit" };
+    return { quantity: parseNumberToken(unitsBefore[1]), unit: "unit" };
   }
 
-  const unitsAfter = after.match(new RegExp(`${alias}\\s*(\\d+(?:\\.\\d+)?)`));
-  if (unitsAfter) return { quantity: Number(unitsAfter[1]), unit: "unit" };
+  const unitsAfter = after.match(new RegExp(`${alias}\\s*(${NUMBER_PATTERN})`));
+  if (unitsAfter) return { quantity: parseNumberToken(unitsAfter[1]), unit: "unit" };
 
   return { quantity: null, unit: "unknown" };
 }
@@ -182,16 +295,6 @@ function detectItems(text: string, catalog: Product[]) {
       unit: quantity.unit,
       cutStyle,
       notes: "",
-    });
-  }
-
-  if (items.length === 0 && VAGUE_FISH_PHRASES.some((phrase) => text.includes(phrase))) {
-    items.push({
-      productName: "דגים לא מזוהים",
-      quantity: null,
-      unit: "unknown",
-      cutStyle: null,
-      notes: "ניסוח כללי ללא מוצר מדויק",
     });
   }
 
@@ -266,6 +369,10 @@ function buildSuggestedReply(options: {
     return "המחיר הסופי ייקבע לפי משקל, זמינות ואישור החנות. ההזמנה תעבור לבדיקה לפני הכנה.";
   }
 
+  if (options.hasUnknownProduct || options.hasVagueRequest || options.missingFields.includes("items")) {
+    return "קיבלנו את ההודעה, אבל לא הצלחנו לזהות בוודאות את כל הפריטים. החנות תבדוק ותעדכן.";
+  }
+
   if (options.missingFields.includes("pickup_time")) {
     return "חסרה שעת איסוף. לאיזו שעה תרצה שההזמנה תהיה מוכנה?";
   }
@@ -282,10 +389,6 @@ function buildSuggestedReply(options: {
     return "קיבלנו את ההזמנה. אפשר לקבל שם מלא לרישום ההזמנה?";
   }
 
-  if (options.hasUnknownProduct || options.hasVagueRequest || options.missingFields.includes("items")) {
-    return "קיבלנו את ההודעה, אבל לא הצלחנו לזהות בוודאות את כל הפריטים. החנות תבדוק ותעדכן.";
-  }
-
   if (options.status === "human_review") {
     return "קיבלנו את ההזמנה. היא תעבור לבדיקה של החנות לפני אישור והכנה.";
   }
@@ -298,8 +401,8 @@ export function applyKnownCustomerDetails(
   known: { name?: string | null; phone?: string | null },
   settings: Settings,
 ): ParsedOrderResult {
-  const customerName = parsed.customerName || known.name || null;
-  const phone = parsed.phone || (known.phone ? normalizePhone(known.phone) : null);
+  const customerName = known.name || parsed.customerName || null;
+  const phone = known.phone ? normalizePhone(known.phone) : parsed.phone;
   const missingFields = buildMissingFields({
     customerName,
     phone,
@@ -347,7 +450,7 @@ export function parseCustomerOrderMessage(
 ): ParsedOrderResult {
   const text = cleanText(message);
   const phone = detectPhone(text);
-  const customerName = detectName(text, phone);
+  const customerName = detectName(text, phone, catalog);
   const pickupDateText = detectPickupDateText(text);
   const pickupTime = detectPickupTime(text);
   const items = detectItems(text, catalog);

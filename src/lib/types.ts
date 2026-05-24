@@ -58,6 +58,7 @@ export interface Order {
   ai_confidence: number;
   missing_fields: string[];
   human_review_required: boolean;
+  printed_at: string | null;
   notes: string | null;
   customer_notes: string | null;
   created_at: string;
@@ -156,6 +157,15 @@ export interface ProcessedIncomingMessage {
   outgoingMessage: Message | null;
   order: OrderWithRelations | null;
   parsed: ParsedOrderResult;
+}
+
+export interface ProcessingFeedback {
+  ok: boolean;
+  conversationId: string | null;
+  orderId: string | null;
+  title: string;
+  steps: string[];
+  status: OrderStatus | null;
 }
 
 export interface EditableOrderPayload {

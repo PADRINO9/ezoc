@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   ClipboardList,
@@ -9,7 +10,6 @@ import {
   MessageSquareText,
   PackageOpen,
   Settings,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,9 +31,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[#f6f5f1] text-slate-950">
       <aside className="fixed inset-y-0 right-0 z-40 hidden w-72 border-l border-slate-200 bg-white/95 px-4 py-5 shadow-sm backdrop-blur lg:block print:hidden">
         <Link href="/dashboard" className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <span className="grid h-11 w-11 place-items-center rounded-lg bg-teal-950 text-white">
-            <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-          </span>
+          <Image
+            src="/nlego.png"
+            alt="הלוגו של בון חכם"
+            width={64}
+            height={64}
+            priority
+            className="h-14 w-14 shrink-0 rounded-full bg-white object-contain shadow-sm ring-1 ring-[#b68b4c]/35"
+          />
           <span>
             <span className="block text-xl font-black tracking-tight">בון חכם</span>
             <span className="block text-xs font-semibold text-slate-500">ניהול הזמנות חכם לחנות דגים</span>
@@ -83,9 +88,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden print:hidden">
         <div className="flex items-center justify-between gap-3">
           <Link href="/dashboard" className="flex items-center gap-2 font-black">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-teal-950 text-white">
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            </span>
+            <Image
+              src="/nlego.png"
+              alt="הלוגו של בון חכם"
+              width={44}
+              height={44}
+              priority
+              className="h-10 w-10 shrink-0 rounded-full bg-white object-contain shadow-sm ring-1 ring-[#b68b4c]/35"
+            />
             בון חכם
           </Link>
           <nav className="flex gap-1 overflow-x-auto" aria-label="ניווט מובייל">

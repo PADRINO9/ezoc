@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AlertTriangle, ArrowUpDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/form";
 import { Table, TableWrap, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfidenceMeter } from "@/components/shared/confidence-meter";
 import type { OrderStatus, OrderWithRelations } from "@/lib/types";
-import { comparePickupTime, formatHebrewDate, isEarlyPickup } from "@/lib/date-utils";
+import { comparePickupTime, formatHebrewDate, isEarlyPickup, isOrderReceivedOvernight } from "@/lib/date-utils";
+import { itemSummary, printStatusLabel, recommendedActionForStatus } from "@/lib/order-format";
 import { statusLabels } from "@/lib/status-utils";
 import { cn, formatPhone } from "@/lib/utils";
 
@@ -26,16 +28,6 @@ const statuses: Array<OrderStatus | "all"> = [
   "picked_up",
   "cancelled",
 ];
-
-function itemSummary(order: OrderWithRelations) {
-  if (order.items.length === 0) return "לא זוהו פריטים";
-  return order.items
-    .map((item) => {
-      const quantity = item.quantity ? `${item.quantity}${item.unit === "kg" ? " ק״ג" : item.unit === "tray" ? " מגשים" : " יח׳"}` : "";
-      return `${item.product_name}${quantity ? ` ${quantity}` : ""}${item.cut_style ? ` (${item.cut_style})` : ""}`;
-    })
-    .join(" · ");
-}
 
 export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
   const [query, setQuery] = useState("");
@@ -115,10 +107,12 @@ export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
                 <Th>איסוף</Th>
                 <Th>פריטים</Th>
                 <Th>סטטוס</Th>
-                <Th>אמון AI</Th>
+                <Th>רמת ודאות</Th>
                 <Th>בדיקה</Th>
+                <Th>בון</Th>
                 <Th>נוצר</Th>
-                <Th>פעולה</Th>
+                <Th>פעולה מומלצת</Th>
+                <Th>פתיחה</Th>
               </Tr>
             </THead>
             <TBody>
@@ -126,6 +120,10 @@ export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
                 const isLowConfidence = order.ai_confidence < 85;
                 const isMissing = order.missing_fields.length > 0;
                 const isUrgent = order.urgency === "urgent" || isEarlyPickup(order.pickup_time);
+                const receivedOvernight = isOrderReceivedOvernight(
+                  order.created_at,
+                  order.messages.filter((message) => message.direction === "incoming").map((message) => message.timestamp),
+                );
 
                 return (
                   <Tr
@@ -157,6 +155,11 @@ export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
                       {order.missing_fields.length > 0 ? (
                         <p className="mt-1 text-xs font-bold text-orange-700">חסרים: {order.missing_fields.join(", ")}</p>
                       ) : null}
+                      {receivedOvernight ? (
+                        <Badge tone="blue" className="mt-2">
+                          התקבלה בלילה
+                        </Badge>
+                      ) : null}
                     </Td>
                     <Td>
                       <StatusBadge status={order.status} />
@@ -165,10 +168,16 @@ export function OrdersTable({ orders }: { orders: OrderWithRelations[] }) {
                       <ConfidenceMeter value={order.ai_confidence} compact />
                     </Td>
                     <Td className="font-bold">
-                      {order.human_review_required ? "נדרשת" : "רגיל"}
+                      {order.human_review_required ? "דורש בדיקה" : "רגיל"}
+                    </Td>
+                    <Td>
+                      <Badge tone={order.printed_at ? "green" : "neutral"}>{printStatusLabel(order.printed_at)}</Badge>
                     </Td>
                     <Td className="text-xs text-slate-500">
                       {new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).format(new Date(order.created_at))}
+                    </Td>
+                    <Td>
+                      <span className="text-sm font-black text-teal-950">{recommendedActionForStatus(order.status)}</span>
                     </Td>
                     <Td>
                       <Button asChild variant="outline" size="sm">

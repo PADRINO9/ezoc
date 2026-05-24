@@ -10,7 +10,7 @@ export default async function SettingsPage() {
       <PageHeader
         eyebrow="תצורת מערכת"
         title="הגדרות"
-        description="הגדרות עסקיות, שעות פעילות, סף אמון והכנה לחיבור וואטסאפ אמיתי."
+        description="הגדרות עסקיות, שעות פעילות, סף רמת ודאות והכנה לחיבור וואטסאפ אמיתי."
       />
       <SettingsForm settings={settings} />
     </div>

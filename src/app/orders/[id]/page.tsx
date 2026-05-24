@@ -15,7 +15,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
       <PageHeader
         eyebrow="פרטי הזמנה"
         title={`הזמנה ${order.order_number}`}
-        description="בדיקה, עריכה, אישור והעברה להכנה. ה-AI לא מסיים הזמנה לבד."
+        description="בדיקה, עריכה, אישור והעברה להכנה. המערכת לא מסיימת הזמנה בלי אישור ידני."
         actions={
           <Button asChild variant="outline">
             <Link href="/orders">חזרה להזמנות</Link>

@@ -14,7 +14,7 @@ export function ProductCatalog({ products }: { products: Product[] }) {
         <CardHeader>
           <CardTitle>קטלוג מוצרים לזיהוי הזמנות</CardTitle>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            ה-parser משתמש בשמות, כינויים ואפשרויות חיתוך כדי להפוך הודעות חופשיות להזמנות מובנות.
+            מנוע הפענוח משתמש בשמות, כינויים ואפשרויות חיתוך כדי להפוך הודעות חופשיות להזמנות מובנות.
           </p>
         </CardHeader>
         <CardContent className="p-0">

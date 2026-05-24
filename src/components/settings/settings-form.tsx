@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input, Label, Select, Textarea } from "@/components/ui/form";
+import { DemoResetButton } from "@/components/settings/demo-reset-button";
 
 export function SettingsForm({ settings }: { settings: Settings }) {
   return (
@@ -13,7 +14,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
         <CardHeader>
           <CardTitle>הגדרות חנות</CardTitle>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            הגדרות שנשמרות בבסיס הנתונים ומשפיעות על סף האמון, תשובות מערכת וסטטוס ברירת מחדל.
+            הגדרות שנשמרות בבסיס הנתונים ומשפיעות על סף רמת הוודאות, תשובות מערכת וסטטוס ברירת מחדל.
           </p>
         </CardHeader>
         <CardContent>
@@ -24,7 +25,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
                 <Input id="business_name" name="business_name" defaultValue={settings.business_name} />
               </Field>
               <Field>
-                <Label htmlFor="minimum_confidence_threshold">סף אמון AI</Label>
+                  <Label htmlFor="minimum_confidence_threshold">סף רמת ודאות</Label>
                 <Input
                   id="minimum_confidence_threshold"
                   name="minimum_confidence_threshold"
@@ -59,7 +60,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
                 />
               </Field>
               <Field>
-                <Label htmlFor="default_ai_order_status">סטטוס ברירת מחדל להזמנות AI</Label>
+                <Label htmlFor="default_ai_order_status">סטטוס ברירת מחדל להזמנות מפוענחות</Label>
                 <Select id="default_ai_order_status" name="default_ai_order_status" defaultValue={settings.default_ai_order_status}>
                   <option value="pending_review">ממתין לאישור</option>
                   <option value="missing_details">חסרים פרטים</option>
@@ -136,12 +137,24 @@ export function SettingsForm({ settings }: { settings: Settings }) {
             </div>
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
               <span className="font-bold">WhatsApp Business API</span>
-              <Badge tone="blue">Webhook Placeholder</Badge>
+              <Badge tone="blue">Webhook מוכן</Badge>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <span className="font-bold">OpenAI Structured Outputs</span>
-              <Badge tone="neutral">Parser Abstraction</Badge>
+              <span className="font-bold">מנוע פענוח עתידי</span>
+              <Badge tone="neutral">הפרדה מוכנה</Badge>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>הכנה להצגת לקוח</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4 text-sm leading-6 text-slate-600">
+              איפוס בטוח של לקוחות, שיחות, הודעות והזמנות דמו. קטלוג מוצרים והגדרות נשארים במקום.
+            </p>
+            <DemoResetButton />
           </CardContent>
         </Card>
       </aside>

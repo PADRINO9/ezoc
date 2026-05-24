@@ -10,7 +10,7 @@ export default async function InboxPage() {
       <PageHeader
         eyebrow="וואטסאפ נכנס"
         title="הודעות וואטסאפ"
-        description="סימולטור רציני לזרימת ההודעות העתידית. כל הודעה נכנסת נשמרת, עוברת parser, ומייצרת הזמנה או שאלת המשך."
+        description="סימולטור רציני לזרימת ההודעות העתידית. כל הודעה נכנסת נשמרת, עוברת פענוח, ומייצרת הזמנה או שאלת המשך."
       />
       <InboxSimulator conversations={conversations} />
     </div>

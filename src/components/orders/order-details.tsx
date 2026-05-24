@@ -19,6 +19,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfidenceMeter } from "@/components/shared/confidence-meter";
 import type { OrderStatus, OrderWithRelations } from "@/lib/types";
 import { formatHebrewDate, formatHebrewDateTime } from "@/lib/date-utils";
+import { formatOrderItemLine, printStatusLabel } from "@/lib/order-format";
 import { formatPhone } from "@/lib/utils";
 
 const statusActions: Array<{ status: OrderStatus; label: string; icon: typeof CheckCircle2; variant?: "default" | "outline" | "danger" | "success" | "secondary" }> = [
@@ -90,7 +91,7 @@ export function OrderDetails({ order }: { order: OrderWithRelations }) {
               {order.human_review_required ? (
                 <Badge tone="amber" className="gap-1.5">
                   <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-                  בדיקה אנושית
+                  דורש בדיקה
                 </Badge>
               ) : null}
             </div>
@@ -118,10 +119,17 @@ export function OrderDetails({ order }: { order: OrderWithRelations }) {
                 </p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-bold text-slate-500">אמון AI</p>
+                <p className="text-xs font-bold text-slate-500">רמת ודאות</p>
                 <div className="mt-3">
                   <ConfidenceMeter value={order.ai_confidence} />
                 </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-bold text-slate-500">הדפסת בון</p>
+                <p className="mt-2 text-lg font-black text-slate-950">{printStatusLabel(order.printed_at)}</p>
+                {order.printed_at ? (
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{formatHebrewDateTime(order.printed_at)}</p>
+                ) : null}
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-bold text-slate-500">פרטים חסרים</p>
@@ -138,6 +146,33 @@ export function OrderDetails({ order }: { order: OrderWithRelations }) {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>פריטים מזוהים להזמנה</CardTitle>
+            <p className="mt-1 text-sm text-slate-500">
+              תקציר העבודה לפני עריכה ואישור. כאן רואים מיד מה המערכת פענחה מההודעה.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {order.items.length > 0 ? (
+              <ol className="space-y-3">
+                {order.items.map((item, index) => (
+                  <li key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-lg font-black text-slate-950">
+                      {index + 1}. {formatOrderItemLine(item)}
+                    </p>
+                    {item.notes ? <p className="mt-2 text-sm leading-6 text-slate-600">הערה: {item.notes}</p> : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-5 text-sm font-bold text-amber-950">
+                לא זוהו פריטים ברורים. יש לבדוק את הודעת הלקוח ידנית לפני אישור.
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -177,7 +212,7 @@ export function OrderDetails({ order }: { order: OrderWithRelations }) {
                     defaultChecked={order.human_review_required}
                     className="h-5 w-5 accent-teal-900"
                   />
-                  <Label htmlFor="human_review_required">נדרשת בדיקה אנושית</Label>
+                  <Label htmlFor="human_review_required">דורש בדיקה לפני אישור</Label>
                 </Field>
               </div>
 
@@ -292,7 +327,7 @@ export function OrderDetails({ order }: { order: OrderWithRelations }) {
             <Button asChild variant="outline" className="w-full">
               <Link href={`/orders/${order.id}/ticket`}>
                 <Printer className="h-4 w-4" aria-hidden="true" />
-                הדפס בון
+                פתח בון להדפסה
               </Link>
             </Button>
           </CardContent>

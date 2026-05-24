@@ -15,7 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfidenceMeter } from "@/components/shared/confidence-meter";
 import { Table, TableWrap, TBody, Td, Th, THead, Tr } from "@/components/ui/table";
-import { comparePickupTime, formatHebrewDate, formatHebrewDateTime, isEarlyPickup } from "@/lib/date-utils";
+import {
+  comparePickupTime,
+  formatHebrewDate,
+  formatHebrewDateTime,
+  isEarlyPickup,
+  isOrderReceivedOvernight,
+} from "@/lib/date-utils";
+import { itemSummary, recommendedActionForStatus } from "@/lib/order-format";
 import type { DashboardData, OrderStatus, OrderWithRelations } from "@/lib/types";
 import { formatPhone } from "@/lib/utils";
 
@@ -32,26 +39,23 @@ const summaryItems: Array<{
   { label: "נאספו היום", statuses: ["picked_up"], icon: CheckCircle2 },
 ];
 
-function itemSummary(order: OrderWithRelations) {
-  if (order.items.length === 0) return "לא זוהו פריטים";
-  return order.items
-    .map((item) => {
-      const quantity = item.quantity ? `${item.quantity} ${item.unit === "kg" ? "ק״ג" : item.unit === "tray" ? "מגשים" : "יח׳"}` : "";
-      return `${item.product_name}${quantity ? ` ${quantity}` : ""}${item.cut_style ? `, ${item.cut_style}` : ""}`;
-    })
-    .join(" · ");
-}
-
 function priorityReasons(order: OrderWithRelations) {
   const reasons: string[] = [];
-  if (order.human_review_required) reasons.push("בדיקה אנושית");
+  if (order.human_review_required) reasons.push("דורש בדיקה");
   if (order.missing_fields.length > 0) reasons.push("חסרים פרטים");
   if (isEarlyPickup(order.pickup_time)) reasons.push("איסוף מוקדם");
-  if (order.ai_confidence < 85) reasons.push("אמון נמוך");
+  if (order.ai_confidence < 85) reasons.push("רמת ודאות נמוכה");
   if (order.raw_messages.some((message) => /כמו|כרגיל|פעם שעברה|תמיד/.test(message))) {
     reasons.push("מתייחס להזמנה קודמת");
   }
   return reasons;
+}
+
+function receivedOvernight(order: OrderWithRelations) {
+  return isOrderReceivedOvernight(
+    order.created_at,
+    order.messages.filter((message) => message.direction === "incoming").map((message) => message.timestamp),
+  );
 }
 
 function SummaryCard({
@@ -80,6 +84,7 @@ function SummaryCard({
 
 function PriorityCard({ order }: { order: OrderWithRelations }) {
   const reasons = priorityReasons(order);
+  const wasReceivedOvernight = receivedOvernight(order);
 
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
@@ -92,12 +97,16 @@ function PriorityCard({ order }: { order: OrderWithRelations }) {
       </div>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-700">{itemSummary(order)}</p>
       <div className="mt-3 flex flex-wrap gap-1.5">
+        {wasReceivedOvernight ? <Badge tone="blue">התקבלה בלילה</Badge> : null}
         {reasons.map((reason) => (
           <Badge key={reason} tone={reason === "איסוף מוקדם" ? "blue" : "amber"}>
             {reason}
           </Badge>
         ))}
       </div>
+      <p className="mt-3 text-sm font-black text-teal-950">
+        פעולה מומלצת: {recommendedActionForStatus(order.status)}
+      </p>
       <div className="mt-4 flex items-center justify-between gap-3">
         <span className="text-sm font-black text-teal-950">{order.pickup_time ?? "שעה חסרה"}</span>
         <Button asChild variant="outline" size="sm">
@@ -113,8 +122,10 @@ function PriorityCard({ order }: { order: OrderWithRelations }) {
 
 export function MorningDashboard({ data }: { data: DashboardData }) {
   const todayOrders = [...data.orders].sort((a, b) => comparePickupTime(a.pickup_time, b.pickup_time));
-  const newNightOrders = data.orders.filter((order) =>
-    ["pending_review", "missing_details", "human_review"].includes(order.status),
+  const newNightOrders = data.orders.filter(
+    (order) =>
+      receivedOvernight(order) &&
+      ["pending_review", "missing_details", "human_review"].includes(order.status),
   );
   const priorityOrders = todayOrders
     .filter((order) => priorityReasons(order).length > 0)
@@ -129,7 +140,7 @@ export function MorningDashboard({ data }: { data: DashboardData }) {
             בוקר טוב — יש {newNightOrders.length} הזמנות חדשות מהלילה
           </h1>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-            כל הודעות הוואטסאפ נקלטו, נותחו ונכנסו לרשימת עבודה מסודרת. אף הזמנה לא מאושרת
+            כל הודעות הוואטסאפ נקלטו, פוענחו ונכנסו לרשימת עבודה מסודרת. אף הזמנה לא מאושרת
             בלי פעולה ידנית של החנות.
           </p>
         </div>
@@ -205,45 +216,60 @@ export function MorningDashboard({ data }: { data: DashboardData }) {
                     <Th>איסוף</Th>
                     <Th>פריטים</Th>
                     <Th>סטטוס</Th>
-                    <Th>אמון</Th>
-                    <Th>פעולה</Th>
+                    <Th>רמת ודאות</Th>
+                    <Th>פעולה מומלצת</Th>
+                    <Th>פתיחה</Th>
                   </Tr>
                 </THead>
                 <TBody>
-                  {todayOrders.map((order) => (
-                    <Tr key={order.id} className={order.human_review_required ? "bg-amber-50/50" : undefined}>
-                      <Td className="font-black text-slate-950">{order.order_number}</Td>
-                      <Td>
-                        <div className="font-bold text-slate-950">{order.customer?.name ?? "לקוח ללא שם"}</div>
-                        <div className="mt-1 text-xs font-semibold text-slate-500" dir="ltr">
-                          {order.customer?.phone ? formatPhone(order.customer.phone) : "ללא טלפון"}
-                        </div>
-                      </Td>
-                      <Td>
-                        <div className="text-lg font-black text-teal-950">{order.pickup_time ?? "חסר"}</div>
-                        <div className="text-xs font-semibold text-slate-500">
-                          {formatHebrewDate(order.pickup_date)}
-                        </div>
-                      </Td>
-                      <Td className="max-w-sm">
-                        <p className="line-clamp-2 leading-6">{itemSummary(order)}</p>
-                        {order.created_at ? (
-                          <p className="mt-1 text-xs text-slate-400">נקלט {formatHebrewDateTime(order.created_at)}</p>
-                        ) : null}
-                      </Td>
-                      <Td>
-                        <StatusBadge status={order.status} />
-                      </Td>
-                      <Td>
-                        <ConfidenceMeter value={order.ai_confidence} compact />
-                      </Td>
-                      <Td>
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/orders/${order.id}`}>פתח</Link>
-                        </Button>
-                      </Td>
-                    </Tr>
-                  ))}
+                  {todayOrders.map((order) => {
+                    const wasReceivedOvernight = receivedOvernight(order);
+
+                    return (
+                      <Tr key={order.id} className={order.human_review_required ? "bg-amber-50/50" : undefined}>
+                        <Td className="font-black text-slate-950">{order.order_number}</Td>
+                        <Td>
+                          <div className="font-bold text-slate-950">{order.customer?.name ?? "לקוח ללא שם"}</div>
+                          <div className="mt-1 text-xs font-semibold text-slate-500" dir="ltr">
+                            {order.customer?.phone ? formatPhone(order.customer.phone) : "ללא טלפון"}
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className="text-lg font-black text-teal-950">{order.pickup_time ?? "חסר"}</div>
+                          <div className="text-xs font-semibold text-slate-500">
+                            {formatHebrewDate(order.pickup_date)}
+                          </div>
+                        </Td>
+                        <Td className="max-w-sm">
+                          <p className="line-clamp-2 leading-6">{itemSummary(order)}</p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {wasReceivedOvernight ? <Badge tone="blue">התקבלה בלילה</Badge> : null}
+                            {order.missing_fields.length > 0 ? <Badge tone="orange">חסרים פרטים</Badge> : null}
+                            {order.human_review_required ? <Badge tone="amber">דורש בדיקה</Badge> : null}
+                          </div>
+                          {order.created_at ? (
+                            <p className="mt-1 text-xs text-slate-400">נקלט {formatHebrewDateTime(order.created_at)}</p>
+                          ) : null}
+                        </Td>
+                        <Td>
+                          <StatusBadge status={order.status} />
+                        </Td>
+                        <Td>
+                          <ConfidenceMeter value={order.ai_confidence} compact />
+                        </Td>
+                        <Td>
+                          <span className="text-sm font-black text-teal-950">
+                            {recommendedActionForStatus(order.status)}
+                          </span>
+                        </Td>
+                        <Td>
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/orders/${order.id}`}>פתח</Link>
+                          </Button>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
                 </TBody>
               </Table>
             </TableWrap>

@@ -1,26 +1,33 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { markOrderPrintedAction } from "@/lib/actions";
 import type { OrderWithRelations, Settings } from "@/lib/types";
 import { formatHebrewDate, formatHebrewDateTime } from "@/lib/date-utils";
+import { formatQuantity, printStatusLabel, unitLabel } from "@/lib/order-format";
 import { getStatusLabel } from "@/lib/status-utils";
 import { formatPhone } from "@/lib/utils";
 
-function unitLabel(unit: string) {
-  if (unit === "kg") return "ק״ג";
-  if (unit === "tray") return "מגשים";
-  if (unit === "unit") return "יח׳";
-  return "";
-}
-
 export function PrintTicket({ order, settings }: { order: OrderWithRelations; settings: Settings }) {
+  const [isPending, startTransition] = useTransition();
+  const [printedAt, setPrintedAt] = useState(order.printed_at);
+
+  function handlePrint() {
+    startTransition(async () => {
+      await markOrderPrintedAction(order.id);
+      setPrintedAt(new Date().toISOString());
+      window.print();
+    });
+  }
+
   return (
     <div className="mx-auto max-w-[520px]">
       <div className="no-print mb-5 flex items-center justify-between gap-3">
-        <Button onClick={() => window.print()} size="lg">
+        <Button onClick={handlePrint} size="lg" disabled={isPending}>
           <Printer className="h-5 w-5" aria-hidden="true" />
-          הדפס בון
+          {isPending ? "מסמן כהודפס..." : "הדפס בון"}
         </Button>
         <p className="text-sm font-semibold text-slate-500">תצוגה קומפקטית להדפסה</p>
       </div>
@@ -42,17 +49,21 @@ export function PrintTicket({ order, settings }: { order: OrderWithRelations; se
             <strong>איסוף:</strong> {order.pickup_date_text ?? formatHebrewDate(order.pickup_date)}{" "}
             {order.pickup_time ?? "שעה חסרה"}
           </p>
+          <p>
+            <strong>הדפסה:</strong> {printStatusLabel(printedAt)}
+          </p>
         </section>
 
         <section className="mt-5">
           <h2 className="text-lg font-black">פריטים:</h2>
-          <ol className="mt-3 space-y-5">
-            {order.items.map((item, index) => (
+          <ol className="mt-3 list-decimal space-y-5 pr-5">
+            {order.items.map((item) => (
               <li key={item.id} className="border-b border-dashed border-slate-300 pb-4 last:border-0">
                 <p className="text-lg font-black">
-                  {index + 1}. {item.product_name} — {item.quantity ?? "כמות חסרה"} {unitLabel(item.unit)}
+                  {item.product_name} — {formatQuantity(item.quantity, item.unit)}
                 </p>
                 {item.cut_style ? <p className="mt-1">חיתוך: {item.cut_style}</p> : null}
+                <p className="mt-1">יחידה: {unitLabel(item.unit, item.quantity)}</p>
                 {item.notes ? <p className="mt-1">הערה: {item.notes}</p> : null}
               </li>
             ))}
