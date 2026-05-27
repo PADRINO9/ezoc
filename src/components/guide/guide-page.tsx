@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
+  Maximize2,
   MessageSquareText,
   PackageCheck,
   Pencil,
@@ -25,6 +26,8 @@ interface Marker {
   n: string;
   x: number;
   y: number;
+  labelX: number;
+  labelY: number;
 }
 
 interface ScreenGuide {
@@ -74,9 +77,9 @@ const screens: ScreenGuide[] = [
     title: "1. דשבורד בוקר",
     goal: "זה המסך הראשון שפותחים בבוקר. הוא מחליף גלילה ידנית בעשרות שיחות וואטסאפ.",
     markers: [
-      { n: "1", x: 56, y: 20 },
-      { n: "2", x: 54, y: 57 },
-      { n: "3", x: 83, y: 80 },
+      { n: "1", x: 57, y: 18, labelX: 43, labelY: 27 },
+      { n: "2", x: 47, y: 59, labelX: 56, labelY: 49 },
+      { n: "3", x: 66, y: 84, labelX: 78, labelY: 75 },
     ],
     notes: [
       {
@@ -102,9 +105,9 @@ const screens: ScreenGuide[] = [
     title: "2. סימולטור וואטסאפ",
     goal: "כאן מדמים הודעות לקוח עד שיהיה חיבור WhatsApp Business API אמיתי.",
     markers: [
-      { n: "1", x: 80, y: 31 },
-      { n: "2", x: 79, y: 68 },
-      { n: "3", x: 36, y: 42 },
+      { n: "1", x: 60, y: 53, labelX: 74, labelY: 42 },
+      { n: "2", x: 60, y: 89, labelX: 75, labelY: 78 },
+      { n: "3", x: 22, y: 55, labelX: 34, labelY: 43 },
     ],
     notes: [
       {
@@ -114,8 +117,8 @@ const screens: ScreenGuide[] = [
       },
       {
         n: "2",
-        title: "תרחישים מוכנים",
-        text: "לחץ על תרחיש כדי לבדוק מקרה נפוץ: מחיר, שעה חסרה, הזמנה קודמת ועוד.",
+        title: "שליחת הודעה",
+        text: "הכפתור שומר את ההודעה, מפעיל פענוח ויוצר הזמנה או שאלת המשך.",
       },
       {
         n: "3",
@@ -123,16 +126,16 @@ const screens: ScreenGuide[] = [
         text: "רואים מה הלקוח כתב, מה המערכת ענתה, והאם נוצרה הזמנה.",
       },
     ],
-    bestPractice: "כדי להדגים ללקוח עסקי, בחר תרחיש 1 להזמנה ברורה ואז תרחיש 2 או 4 כדי להראות טיפול בבעיה.",
+    bestPractice: "כדי להדגים ללקוח עסקי, התחל מהטקסט המוכן שמופיע בטופס ואז גלול להודעות לדוגמה כדי לבדוק מקרי מחיר, חוסר ושחזור הזמנה.",
   },
   {
     id: "orders",
     title: "3. טבלת הזמנות",
     goal: "זה מסך העבודה לאורך היום. משתמשים בו לחיפוש, סינון ומעבר מהיר להזמנה.",
     markers: [
-      { n: "1", x: 57, y: 28 },
-      { n: "2", x: 28, y: 28 },
-      { n: "3", x: 49, y: 58 },
+      { n: "1", x: 48, y: 31, labelX: 61, labelY: 23 },
+      { n: "2", x: 22, y: 31, labelX: 32, labelY: 23 },
+      { n: "3", x: 58, y: 62, labelX: 45, labelY: 73 },
     ],
     notes: [
       {
@@ -147,8 +150,8 @@ const screens: ScreenGuide[] = [
       },
       {
         n: "3",
-        title: "כפתור ״פתח״",
-        text: "פותח את פרטי ההזמנה כדי לערוך, לאשר או להדפיס.",
+        title: "שורת הזמנה",
+        text: "כל שורה מציגה לקוח, איסוף, סטטוס ורמת ודאות. עמודת ״פתח״ בקצה הטבלה מעבירה לפרטי ההזמנה.",
       },
     ],
     bestPractice: "ביום עמוס מיין לפי זמן איסוף, ואז עבוד מלמעלה למטה.",
@@ -158,9 +161,9 @@ const screens: ScreenGuide[] = [
     title: "4. פרטי הזמנה",
     goal: "כאן מאשרים בפועל. זה המסך החשוב ביותר לפני הכנה.",
     markers: [
-      { n: "1", x: 19, y: 45 },
-      { n: "2", x: 56, y: 46 },
-      { n: "3", x: 64, y: 78 },
+      { n: "1", x: 17, y: 52, labelX: 29, labelY: 40 },
+      { n: "2", x: 63, y: 66, labelX: 76, labelY: 55 },
+      { n: "3", x: 62, y: 96, labelX: 76, labelY: 86 },
     ],
     notes: [
       {
@@ -175,8 +178,8 @@ const screens: ScreenGuide[] = [
       },
       {
         n: "3",
-        title: "עריכה",
-        text: "מתקנים שעה, כמויות, חיתוך והערות. ואז שומרים ומאשרים.",
+        title: "פריטים מזוהים",
+        text: "בודקים מה המערכת פענחה לפני עריכה ואישור. אזור העריכה נמצא בהמשך המסך.",
       },
     ],
     bestPractice: "לא לוחצים ״אשר הזמנה״ לפני ששעת איסוף, כמות ופריטים ברורים.",
@@ -186,9 +189,9 @@ const screens: ScreenGuide[] = [
     title: "5. בון הכנה",
     goal: "בון קומפקטי לצוות ההכנה. מיועד להדפסה, לא לניהול.",
     markers: [
-      { n: "1", x: 54, y: 22 },
-      { n: "2", x: 50, y: 55 },
-      { n: "3", x: 49, y: 88 },
+      { n: "1", x: 54, y: 24, labelX: 66, labelY: 15 },
+      { n: "2", x: 51, y: 55, labelX: 65, labelY: 47 },
+      { n: "3", x: 50, y: 80, labelX: 64, labelY: 71 },
     ],
     notes: [
       {
@@ -198,13 +201,13 @@ const screens: ScreenGuide[] = [
       },
       {
         n: "2",
-        title: "פריטי הכנה",
-        text: "הצוות רואה מוצר, כמות, יחידה, חיתוך והערות.",
+        title: "פרטי לקוח ואיסוף",
+        text: "שם, טלפון ושעת איסוף מופיעים בראש הבון כדי למנוע בלבול בזמן ההכנה.",
       },
       {
         n: "3",
-        title: "תזכורת מחיר",
-        text: "הבון לא מבטיח מחיר או זמינות סופיים.",
+        title: "פריטי הכנה",
+        text: "הצוות רואה מוצר, כמות, יחידה, חיתוך והערות. תזכורת המחיר מופיעה בתחתית הבון.",
       },
     ],
     bestPractice: "מדפיסים רק אחרי אישור אנושי, ואז מסמנים את ההזמנה ״בהכנה״.",
@@ -214,9 +217,9 @@ const screens: ScreenGuide[] = [
     title: "6. קטלוג מוצרים",
     goal: "הקטלוג עוזר למערכת לזהות איך לקוחות קוראים למוצרים.",
     markers: [
-      { n: "1", x: 76, y: 43 },
-      { n: "2", x: 54, y: 43 },
-      { n: "3", x: 20, y: 45 },
+      { n: "1", x: 72, y: 48, labelX: 83, labelY: 39 },
+      { n: "2", x: 60, y: 48, labelX: 51, labelY: 39 },
+      { n: "3", x: 18, y: 54, labelX: 31, labelY: 44 },
     ],
     notes: [
       {
@@ -242,9 +245,9 @@ const screens: ScreenGuide[] = [
     title: "7. הגדרות",
     goal: "הגדרות עסקיות שמשפיעות על תשובות המערכת וסף הבדיקה האנושית.",
     markers: [
-      { n: "1", x: 51, y: 33 },
-      { n: "2", x: 61, y: 70 },
-      { n: "3", x: 20, y: 55 },
+      { n: "1", x: 50, y: 47, labelX: 62, labelY: 37 },
+      { n: "2", x: 58, y: 70, labelX: 72, labelY: 62 },
+      { n: "3", x: 18, y: 76, labelX: 31, labelY: 67 },
     ],
     notes: [
       {
@@ -254,8 +257,8 @@ const screens: ScreenGuide[] = [
       },
       {
         n: "2",
-        title: "תשובה אחרי שעות",
-        text: "מה הלקוח מקבל כשהוא כותב בלילה או כשהחנות סגורה.",
+        title: "שעות וחלונות איסוף",
+        text: "קובעים שעות פעילות וחלונות איסוף שהמערכת משתמשת בהם בתשובות ובבדיקות.",
       },
       {
         n: "3",
@@ -312,14 +315,51 @@ const buttonGuide = [
   },
 ];
 
-function MarkerDot({ marker }: { marker: Marker }) {
+function MarkerLayer({ screen }: { screen: ScreenGuide }) {
+  const arrowId = `guide-marker-arrow-${screen.id}`;
+
   return (
-    <span
-      className="absolute z-10 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-teal-950 text-sm font-black text-white shadow-lg ring-4 ring-white/90"
-      style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
-    >
-      {marker.n}
-    </span>
+    <div className="pointer-events-none absolute inset-0">
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <marker id={arrowId} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="#0f3f3f" />
+          </marker>
+        </defs>
+        {screen.markers.map((marker) => (
+          <line
+            key={`line-${marker.n}`}
+            x1={marker.labelX}
+            y1={marker.labelY}
+            x2={marker.x}
+            y2={marker.y}
+            stroke="#0f3f3f"
+            strokeWidth="0.65"
+            strokeLinecap="round"
+            markerEnd={`url(#${arrowId})`}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+      </svg>
+
+      {screen.markers.map((marker) => (
+        <span
+          key={`target-${marker.n}`}
+          className="absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-teal-950 bg-white/70 shadow-[0_0_0_4px_rgba(255,255,255,0.82)]"
+          style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+        />
+      ))}
+
+      {screen.markers.map((marker) => (
+        <span
+          key={marker.n}
+          className="absolute z-20 grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white bg-teal-950 text-sm font-black text-white shadow-xl"
+          style={{ left: `${marker.labelX}%`, top: `${marker.labelY}%` }}
+        >
+          {marker.n}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -332,27 +372,34 @@ function ScreenshotCard({ screen }: { screen: ScreenGuide }) {
             <CardTitle className="text-2xl">{screen.title}</CardTitle>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">{screen.goal}</p>
           </div>
-          <Badge tone="teal">צילום מוקטן</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="teal">צילום חד</Badge>
+            <Button asChild variant="outline" size="sm">
+              <a href={`/guide/${screen.id}.png`} target="_blank" rel="noreferrer">
+                פתח בגודל מלא
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,620px)_minmax(280px,1fr)] lg:items-start">
+      <CardContent className="space-y-5">
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-          <div className="relative aspect-video overflow-hidden rounded-md bg-white">
+          <div className="relative overflow-hidden rounded-md bg-white">
             <Image
               src={`/guide/${screen.id}.png`}
-              alt={`צילום מסך מוקטן של ${screen.title}`}
-              fill
+              alt={`צילום מסך של ${screen.title}`}
+              width={1280}
+              height={720}
               unoptimized
-              sizes="(max-width: 1024px) 100vw, 620px"
-              className="object-contain"
+              sizes="(max-width: 1024px) 100vw, calc(100vw - 24rem)"
+              className="h-auto w-full select-none"
             />
-            {screen.markers.map((marker) => (
-              <MarkerDot key={marker.n} marker={marker} />
-            ))}
+            <MarkerLayer screen={screen} />
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-3">
           {screen.notes.map((note) => (
             <div key={note.n} className="rounded-lg border border-slate-200 bg-white p-4">
               <div className="flex items-center gap-2">
@@ -364,10 +411,11 @@ function ScreenshotCard({ screen }: { screen: ScreenGuide }) {
               <p className="mt-2 text-sm leading-6 text-slate-600">{note.text}</p>
             </div>
           ))}
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-black text-amber-950">דרך עבודה מומלצת</p>
-            <p className="mt-2 text-sm leading-6 text-amber-950/80">{screen.bestPractice}</p>
-          </div>
+        </div>
+
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-black text-amber-950">דרך עבודה מומלצת</p>
+          <p className="mt-2 text-sm leading-6 text-amber-950/80">{screen.bestPractice}</p>
         </div>
       </CardContent>
     </Card>
@@ -432,8 +480,8 @@ export function GuidePage() {
               איך עובדים נכון עם ״בון חכם״
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600 lg:text-lg">
-              המדריך הזה מסביר מה לעשות בכל מסך, איזה כפתור לוחצים ומתי. התמונות כאן
-              מוקטנות בכוונה: משתמשים במספרים שעל התמונה ואז קוראים את ההסבר ליד.
+              המדריך הזה מסביר מה לעשות בכל מסך, איזה כפתור לוחצים ומתי. בכל צילום יש
+              חיצי סימון שמצביעים על המקום המדויק, ואפשר לפתוח כל צילום בגודל מלא.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               <Button asChild size="lg">
